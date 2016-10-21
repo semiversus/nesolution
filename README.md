@@ -1,14 +1,12 @@
 ### Summary
 
-This is an NES emulator written in Go.
+This project extends the NES emulator from Michael Fogleman to let computers play NES. This repository is forked from http://github.com/fogleman/nes .
 
-### Screenshots
-
-![Screenshots](http://i.imgur.com/vD3FXVh.png)
-
-### Title Screens
-
-http://www.michaelfogleman.com/static/nes/
+Evolutionary algorithm iterates through following steps:
+- Use a given button pattern and make random changes (add/remove button presses, cut pieces out of the pattern
+- Let the pattern run in the emulator
+- Rate the success of the button pattern
+- If the actual is better than the original use this pattern for the next iteration
 
 ### Dependencies
 
@@ -32,25 +30,16 @@ On Mac, you can use homebrew:
 The `go get` command will automatically fetch the dependencies listed above,
 compile the binary and place it in your `$GOPATH/bin` directory.
 
-    go get github.com/fogleman/nes
+    go get github.com/semiversus/nesolution
 
 ### Usage
 
-    nes [rom_file|rom_directory]
-
-1. If no arguments are specified, the program will look for rom files in
-the current working directory.
-
-2. If a directory is specified, the program will look for rom files in that
-directory.
-
-3. If a file is specified, the program will run that rom.
-
-For 1 & 2, the program will display a menu screen to select which rom to play.
-The thumbnails are downloaded from an online database keyed by the md5 sum of
-the rom file.
-
-![Menu Screenshot](http://i.imgur.com/pwetBLv.png)
+    nesolution rom_file cmd replay_file
+    
+Possible commands(`cmd`) are:
+- `record`: play the game and use spacebar to start and end recording to the given `replay_file`
+- `play`: replay the button pattern stored in `replay_file`
+- `evolve`: optimize the given button pattern
 
 ### Controls
 
@@ -67,6 +56,7 @@ Keyboard controls are indicated below.
 | A (Turbo)             | A           |
 | B (Turbo)             | S           |
 | Reset                 | R           |
+| Start/Stop Recording  | Space       |
 
 ### Mappers
 
