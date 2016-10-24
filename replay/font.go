@@ -1,4 +1,4 @@
-package ui
+package replay
 
 import (
 	"bytes"
