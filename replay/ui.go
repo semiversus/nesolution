@@ -31,6 +31,7 @@ type UI struct {
 	window   *glfw.Window
 	texture  uint32
   replay   *Replay
+  mode     int
 }
 
 func NewUI(rom_path string, replay_path string, mode int) *UI {
@@ -39,11 +40,7 @@ func NewUI(rom_path string, replay_path string, mode int) *UI {
 		log.Fatalln(err)
 	}
 
-	r := UI{console: console, replay: NewReplay(replay_path)}
-
-  if mode==Playing {
-    r.replay.Load(console)
-  }
+	r := UI{console: console, replay: NewReplay(replay_path), mode: mode}
 
 	return &r
 }
@@ -87,42 +84,43 @@ func (r *UI) Run() {
 	r.texture = createTexture()
 
   old_timestamp := glfw.GetTime()
-	for !r.window.ShouldClose() {
+  timestamp := old_timestamp
+  cycles := int(0)
+  frame := uint64(0)
+
+  if r.mode==Playing {
+    r.replay.Load(r.console)
+  }
+
+	for !r.window.ShouldClose() && !r.replay.PlayFinished(){
     gl.Clear(gl.COLOR_BUFFER_BIT)
 
-    timestamp := glfw.GetTime()
-    r.Update(timestamp-old_timestamp)
+    timestamp = glfw.GetTime()
+    cycles = int(nes.CPUFrequency * (timestamp-old_timestamp))
+    frame = r.console.PPU.Frame
+    for cycles > 0 {
+      if r.console.PPU.Frame>frame {
+        switch r.replay.GetState() {
+        case Playing:
+          r.console.SetButtons1(r.replay.ReadButtons())
+        case Recording:
+          r.replay.AppendButtons(updateControllers(r.window, r.console))
+        case Idle:
+          updateControllers(r.window, r.console)
+        }
+        frame++
+      }
+      cycles -= r.console.Step()
+    }
+    gl.BindTexture(gl.TEXTURE_2D, r.texture)
+    setTexture(r.console.Buffer())
+    drawBuffer(r.window)
+    gl.BindTexture(gl.TEXTURE_2D, 0)
     old_timestamp = timestamp
 
 		r.window.SwapBuffers()
 		glfw.PollEvents()
-
 	}
-}
-
-func (r *UI) Update(dt float64) {
-	window := r.window
-	console := r.console
-	cycles := int(nes.CPUFrequency * dt)
-	frame := console.PPU.Frame
-	for cycles > 0 {
-    if console.PPU.Frame>frame {
-      if r.replay.GetState()==Playing {
-	      console.SetButtons1(r.replay.ReadButtons())
-      } else {
-        buttons := updateControllers(window, console)
-        if r.replay.GetState()==Recording {
-          r.replay.AppendButtons(buttons)
-        }
-      }
-      frame++
-    }
-		cycles -= console.Step()
-	}
-	gl.BindTexture(gl.TEXTURE_2D, r.texture)
-	setTexture(console.Buffer())
-	drawBuffer(r.window)
-	gl.BindTexture(gl.TEXTURE_2D, 0)
 }
 
 func (r *UI) OnKey(window *glfw.Window,
@@ -130,7 +128,9 @@ func (r *UI) OnKey(window *glfw.Window,
 	if action == glfw.Press {
 		switch key {
 		case glfw.KeyR:
-			r.console.Reset()
+      if r.replay.GetState()!=Playing {
+        r.console.Reset()
+      }
 		case glfw.KeySpace:
       switch r.replay.GetState() {
       case Idle:

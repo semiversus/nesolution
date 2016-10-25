@@ -1,9 +1,7 @@
 package replay
 
 import (
-  "fmt"
   "os"
-  "path"
   "encoding/gob"
 	"github.com/semiversus/nesolution/nes"
 )
@@ -33,17 +31,11 @@ func (r *Replay) GetState() int {
 }
 
 func (r *Replay) StartRecord(console *nes.Console) error {
-	dir, _ := path.Split(r.filename)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return err
-	}
-
 	file, err := os.Create(r.filename)
   r.file = file
 	if err != nil {
 		return err
 	}
-  fmt.Println(len(r.controller_data))
 
   r.state = Recording
   r.encoder = gob.NewEncoder(r.file)
@@ -93,10 +85,9 @@ func (r *Replay) ReadButtons() (buttons [8]bool) {
       buttons[i] = (value>>i)&1==1
     }
   }
-  fmt.Println(buttons, r.controller_index)
   return buttons
 }
 
-func (r *Replay) ResetReplay() {
-  r.controller_index = 0
+func (r *Replay) PlayFinished() bool {
+  return r.state==Playing && r.controller_index>=len(r.controller_data)
 }
