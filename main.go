@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"github.com/semiversus/nesolution/replay"
+	"github.com/semiversus/nesolution/evolve"
 )
 
 func main() {
@@ -27,6 +28,6 @@ func main() {
     view := replay.NewUI(rom_path, replay_path, replay.Idle)
     view.Run()
   case "evolve":
-    // todo
+    evolve.Run(rom_path, replay_path)
   }
 }

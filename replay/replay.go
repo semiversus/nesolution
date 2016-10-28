@@ -26,6 +26,16 @@ func NewReplay(filename string) *Replay {
   return &replay
 }
 
+func (r *Replay) Len() int {
+  return len(r.controller_data)
+}
+
+func (r *Replay) Copy() *Replay {
+  replay := Replay{controller_data: make([]byte, len(r.controller_data), 50*60*3), state: Idle, filename: r.filename}
+  copy(replay.controller_data, r.controller_data)
+  return &replay
+}
+
 func (r *Replay) GetState() int {
   return r.state
 }
@@ -90,4 +100,34 @@ func (r *Replay) ReadButtons() (buttons [8]bool) {
 
 func (r *Replay) PlayFinished() bool {
   return r.state==Playing && r.controller_index>=len(r.controller_data)
+}
+
+func (r *Replay) SetButton(pos int, length int, button int) {
+  for i:=pos; i<pos+length; i++ {
+    switch button {
+    case nes.ButtonLeft:
+      r.controller_data[i]=(r.controller_data[i]&(^uint8(1<<nes.ButtonRight)))|(1<<nes.ButtonLeft)
+    case nes.ButtonRight:
+      r.controller_data[i]=(r.controller_data[i]&(^uint8(1<<nes.ButtonLeft)))|(1<<nes.ButtonRight)
+    case nes.ButtonUp:
+      r.controller_data[i]=(r.controller_data[i]&(^uint8(1<<nes.ButtonDown)))|(1<<nes.ButtonUp)
+    case nes.ButtonDown:
+      r.controller_data[i]=(r.controller_data[i]&(^uint8(1<<nes.ButtonUp)))|(1<<nes.ButtonDown)
+    default:
+      r.controller_data[i]|=1<<uint8(button)
+    }
+  }
+}
+
+func (r *Replay) RemoveButton(pos int, length int, button int) {
+  for i:=pos; i<pos+length; i++ {
+    r.controller_data[i]&=^uint8(1<<uint8(button))
+  }
+}
+
+func (r *Replay) Cut(pos int, length int) {
+  copy(r.controller_data[pos:], r.controller_data[pos+length:])
+  for i:=range r.controller_data[len(r.controller_data)-length:] {
+    r.controller_data[i]=0
+  }
 }
