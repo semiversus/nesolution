@@ -22,11 +22,9 @@ func main() {
 
   switch cmd_string { // check command
   case "play":
-    view := replay.NewUI(rom_path, replay_path, replay.Playing)
-    view.Run()
+    replay.Run(rom_path, replay_path, true)
   case "record":
-    view := replay.NewUI(rom_path, replay_path, replay.Idle)
-    view.Run()
+    replay.Run(rom_path, replay_path, false)
   case "evolve":
     evolve.Run(rom_path, replay_path)
   }

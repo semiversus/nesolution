@@ -2,28 +2,58 @@ package replay
 
 import (
   "os"
+  "log"
+  "bytes"
   "encoding/gob"
 	"github.com/semiversus/nesolution/nes"
 )
 
-const (
-  Idle = iota
-  Playing
-  Recording
-)
-
 type Replay struct {
   controller_data []byte
-  controller_index int
-  filename string
-  file *os.File
-  state int
-  encoder *gob.Encoder
+  console_state []byte
 }
 
-func NewReplay(filename string) *Replay {
-  replay := Replay{controller_data: make([]byte, 0, 50*60*3), state: Idle, filename: filename}
+func NewReplay(console *nes.Console) *Replay {
+  replay := Replay{}
+  buffer := new(bytes.Buffer)
+	encoder := gob.NewEncoder(buffer)
+  console.Save(encoder)
+  replay.console_state=buffer.Bytes()
   return &replay
+}
+
+func Load(filename string) *Replay {
+	file, err := os.Open(filename)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer file.Close()
+
+  replay := Replay{}
+	decoder := gob.NewDecoder(file)
+	decoder.Decode(&replay.controller_data)
+  decoder.Decode(&replay.console_state)
+
+  return &replay
+}
+
+func (r *Replay) GetConsoleState() *gob.Decoder {
+  buffer := bytes.NewBuffer(r.console_state)
+	decoder := gob.NewDecoder(buffer)
+  return decoder
+}
+
+func (r *Replay) Save(filename string) error {
+	file, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	encoder := gob.NewEncoder(file)
+	encoder.Encode(r.controller_data)
+	encoder.Encode(r.console_state)
+  return nil
 }
 
 func (r *Replay) Len() int {
@@ -31,50 +61,9 @@ func (r *Replay) Len() int {
 }
 
 func (r *Replay) Copy() *Replay {
-  replay := Replay{controller_data: make([]byte, len(r.controller_data), 50*60*3), state: Idle, filename: r.filename}
+  replay := Replay{controller_data: make([]byte, len(r.controller_data)), console_state:r.console_state}
   copy(replay.controller_data, r.controller_data)
   return &replay
-}
-
-func (r *Replay) GetState() int {
-  return r.state
-}
-
-func (r *Replay) StartRecord(console *nes.Console) error {
-	file, err := os.Create(r.filename)
-  r.file = file
-	if err != nil {
-		return err
-	}
-
-  r.state = Recording
-  r.encoder = gob.NewEncoder(r.file)
-  console.Save(r.encoder)
-  return nil
-}
-
-func (r *Replay) Save() {
-  if r.file==nil {
-    return
-  }
-	r.encoder.Encode(r.controller_data)
-  r.state = Idle
-  r.file.Close()
-}
-
-func (r *Replay) Load(console *nes.Console) error {
-	file, err := os.Open(r.filename)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	decoder := gob.NewDecoder(file)
-	console.Load(decoder)
-	decoder.Decode(&r.controller_data)
-  r.controller_index=0
-  r.state = Playing
-  return nil
 }
 
 func (r *Replay) AppendButtons(buttons [8]bool) {
@@ -87,10 +76,9 @@ func (r *Replay) AppendButtons(buttons [8]bool) {
   r.controller_data = append(r.controller_data, value)
 }
 
-func (r *Replay) ReadButtons() (buttons [8]bool) {
-  if r.controller_index < len(r.controller_data) {
-    value := r.controller_data[r.controller_index]
-    r.controller_index++
+func (r *Replay) ReadButtons(pos int) (buttons [8]bool) {
+  if pos < len(r.controller_data) {
+    value := r.controller_data[pos]
     for i := uint(0); i<8; i++ {
       buttons[i] = (value>>i)&1==1
     }
@@ -98,11 +86,11 @@ func (r *Replay) ReadButtons() (buttons [8]bool) {
   return buttons
 }
 
-func (r *Replay) PlayFinished() bool {
-  return r.state==Playing && r.controller_index>=len(r.controller_data)
-}
-
 func (r *Replay) SetButton(pos int, length int, button int) {
+  if pos+length>len(r.controller_data) {
+    r.controller_data=append(r.controller_data[:], make([]byte, pos+length-len(r.controller_data))...)
+  }
+
   for i:=pos; i<pos+length; i++ {
     switch button {
     case nes.ButtonLeft:

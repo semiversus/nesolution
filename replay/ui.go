@@ -18,6 +18,12 @@ const (
 	title  = "NES"
 )
 
+const (
+  Idle = iota
+  Playing
+  Recording
+)
+
 func init() {
 	// we need a parallel OS thread to avoid audio stuttering
 	runtime.GOMAXPROCS(2)
@@ -26,26 +32,12 @@ func init() {
 	runtime.LockOSThread()
 }
 
-type UI struct {
-	console  *nes.Console
-	window   *glfw.Window
-	texture  uint32
-  replay   *Replay
-  mode     int
-}
-
-func NewUI(rom_path string, replay_path string, mode int) *UI {
+func Run(rom_path string, replay_path string, replay_mode bool) {
 	console, err := nes.NewConsole(rom_path)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	r := UI{console: console, replay: NewReplay(replay_path), mode: mode}
-
-	return &r
-}
-
-func (r *UI) Run() {
 	portaudio.Initialize()
 	defer portaudio.Terminate()
 
@@ -65,15 +57,45 @@ func (r *UI) Run() {
 	glfw.WindowHint(glfw.ContextVersionMajor, 2)
 	glfw.WindowHint(glfw.ContextVersionMinor, 1)
 	window, err := glfw.CreateWindow(width*scale, height*scale, title, nil, nil)
-  r.window = window
 	if err != nil {
 		log.Fatalln(err)
 	}
-	r.window.MakeContextCurrent()
+	window.MakeContextCurrent()
 
-	r.console.SetAudioChannel(audio.channel)
-	r.console.SetAudioSampleRate(audio.sampleRate)
-	r.window.SetKeyCallback(r.OnKey)
+	console.SetAudioChannel(audio.channel)
+	console.SetAudioSampleRate(audio.sampleRate)
+
+  mode := Idle
+  replay := NewReplay(console)
+
+  if replay_mode==true {
+    mode = Playing
+    replay = Load(replay_path)
+    console.Load(replay.GetConsoleState())
+  }
+
+  onKey := func (window *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
+    if action != glfw.Press {
+      return
+    }
+
+    switch key {
+    case glfw.KeyR:
+      console.Reset()
+    case glfw.KeySpace:
+      switch mode {
+      case Idle:
+        fmt.Println("Start")
+        replay = NewReplay(console)
+        mode = Recording
+      case Recording:
+        fmt.Println("Stop")
+        replay.Save(replay_path)
+      }
+    }
+  }
+
+	window.SetKeyCallback(onKey)
 
 	// initialize gl
 	if err := gl.Init(); err != nil {
@@ -81,68 +103,47 @@ func (r *UI) Run() {
 	}
 	gl.Enable(gl.TEXTURE_2D)
 	gl.ClearColor(0, 0, 0, 1)
-	r.texture = createTexture()
+	texture := createTexture()
 
   old_timestamp := glfw.GetTime()
   timestamp := old_timestamp
   cycles := int(0)
   frame := uint64(0)
 
-  if r.mode==Playing {
-    r.replay.Load(r.console)
-  }
+  replay_pos := 0
 
-	for !r.window.ShouldClose() && !r.replay.PlayFinished(){
+	for !(window.ShouldClose() || (mode==Playing && replay_pos>replay.Len())) {
     gl.Clear(gl.COLOR_BUFFER_BIT)
 
     timestamp = glfw.GetTime()
     cycles = int(nes.CPUFrequency * (timestamp-old_timestamp))
-    frame = r.console.PPU.Frame
+    frame = console.PPU.Frame
     for cycles > 0 {
-      if r.console.PPU.Frame>frame {
-        switch r.replay.GetState() {
+      if console.PPU.Frame>frame {
+        switch mode {
         case Playing:
-          r.console.SetButtons1(r.replay.ReadButtons())
+          console.SetButtons1(replay.ReadButtons(replay_pos))
+          replay_pos++
         case Recording:
-          r.replay.AppendButtons(updateControllers(r.window, r.console))
+          replay.AppendButtons(updateControllers(window, console))
         case Idle:
-          updateControllers(r.window, r.console)
+          updateControllers(window, console)
         }
         frame++
       }
-      cycles -= r.console.Step()
+      cycles -= console.Step()
     }
-    gl.BindTexture(gl.TEXTURE_2D, r.texture)
-    setTexture(r.console.Buffer())
-    drawBuffer(r.window)
+    gl.BindTexture(gl.TEXTURE_2D, texture)
+    setTexture(console.Buffer())
+    drawBuffer(window)
     gl.BindTexture(gl.TEXTURE_2D, 0)
     old_timestamp = timestamp
 
-		r.window.SwapBuffers()
+		window.SwapBuffers()
 		glfw.PollEvents()
 	}
 }
 
-func (r *UI) OnKey(window *glfw.Window,
-	key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
-	if action == glfw.Press {
-		switch key {
-		case glfw.KeyR:
-      if r.replay.GetState()!=Playing {
-        r.console.Reset()
-      }
-		case glfw.KeySpace:
-      switch r.replay.GetState() {
-      case Idle:
-        fmt.Println("Start")
-        r.replay.StartRecord(r.console)
-      case Recording:
-        fmt.Println("Stop")
-        r.replay.Save()
-      }
-		}
-	}
-}
 
 func drawBuffer(window *glfw.Window) {
 	w, h := window.GetFramebufferSize()
