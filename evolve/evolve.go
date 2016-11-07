@@ -20,7 +20,7 @@ const (
 )
 
 const (
-  length = 2000
+  replay_length = 2000
 )
 
 type IterateResult struct {
@@ -81,7 +81,7 @@ func Iterate(rom_path string, replay_master *replay.Replay) (replay *replay.Repl
 
   changes := int(10*rand.Float64())
   for i:=0; i<changes; i++ {
-    pos := int(length*rand.Float64())
+    pos := int(replay_length*rand.Float64())
     length := int(math.Pow(400.0, rand.Float64()))
     if pos+length>replay_actual.Len() {
       length = replay_actual.Len()-pos
@@ -116,7 +116,7 @@ func ScoreReplay(rom_path string, replay *replay.Replay) (state int, score uint6
 
   console.Load(replay.GetConsoleState())
 
-  for frame:=0; frame<length; frame++ {
+  for frame:=0; frame<replay_length; frame++ {
     console.StepFrame()
     console.SetButtons1(replay.ReadButtons(frame))
     state, frame_score=GetFrameScore(console)
