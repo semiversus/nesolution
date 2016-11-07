@@ -8,6 +8,8 @@ import (
 	"github.com/semiversus/nesolution/nes"
 	"github.com/semiversus/nesolution/replay"
   "fmt"
+  "regexp"
+  "strconv"
 )
 
 const (
@@ -27,17 +29,30 @@ type IterateResult struct {
 }
 
 func Run(rom_path string, replay_path string) {
+  var prefix_path, postfix_path string
+  var number_path int
   var best_score uint64
   var best_replay *replay.Replay
 
   ch := make(chan IterateResult)
 
   rand.Seed( time.Now().UnixNano())
-  best_replay=replay.Load(replay_path)
+
+  if replay_path!="" {
+    re := regexp.MustCompile("([^0-9]+)([0-9]+)([^0-9]+)")
+    path_slice:=re.FindStringSubmatch(replay_path)
+    prefix_path, postfix_path=path_slice[1],  path_slice[3]
+    number_path,_=strconv.Atoi(path_slice[2])
+    best_replay=replay.Load(replay_path)
+  } else {
+    best_replay=new(replay.Replay)
+    prefix_path="best"
+    number_path=0
+    postfix_path=".mov"
+  }
 
   _, best_score=ScoreReplay(rom_path, best_replay)
 
-  iteration:=0
   for {
     for i:=0; i<10; i++ {
       go func(i int) {
@@ -52,11 +67,12 @@ func Run(rom_path string, replay_path string) {
       if actual_score_replay.score>=best_score {
         best_replay=actual_score_replay.replay
         best_score=actual_score_replay.score
-        best_replay.Save("best.mov")
       }
     }
-    fmt.Println(iteration, best_score)
-    iteration++
+    number_path++
+    filename:=prefix_path+strconv.Itoa(number_path)+postfix_path
+    best_replay.Save(filename)
+    fmt.Println(filename, best_score)
   }
 }
 

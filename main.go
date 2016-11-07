@@ -8,17 +8,20 @@ import (
 )
 
 func main() {
-	log.SetFlags(0)
+  var replay_path string
 
   args := os.Args[1:]
 
-  if len(args)<3 {
-		log.Fatalln("specify rom file, a command (play, record or evolve) and a replay file")
+  if len(args)<2 {
+		log.Fatalln("specify rom file, a command (play, record or evolve) and optional a replay file")
   }
 
   rom_path := args[0]
   cmd_string := args[1]
-  replay_path := args[2]
+
+  if len(args)>=3 {
+    replay_path = args[2]
+  }
 
   switch cmd_string { // check command
   case "play":

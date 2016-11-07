@@ -114,6 +114,9 @@ func (r *Replay) RemoveButton(pos int, length int, button int) {
 }
 
 func (r *Replay) Cut(pos int, length int) {
+  if pos>len(r.controller_data) {
+    return 
+  }
   copy(r.controller_data[pos:], r.controller_data[pos+length:])
   for i:=range r.controller_data[len(r.controller_data)-length:] {
     r.controller_data[i]=0
