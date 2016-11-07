@@ -83,8 +83,8 @@ func Iterate(rom_path string, replay_master *replay.Replay) (replay *replay.Repl
   for i:=0; i<changes; i++ {
     pos := int(replay_length*rand.Float64())
     length := int(math.Pow(400.0, rand.Float64()))
-    if pos+length>replay_actual.Len() {
-      length = replay_actual.Len()-pos
+    if pos+length>replay_length {
+      length = replay_length-pos
     }
     mode := rand.Float64()
     button := rand.Intn(6)
