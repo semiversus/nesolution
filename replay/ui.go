@@ -24,15 +24,10 @@ const (
   Recording
 )
 
-func init() {
-	// we need a parallel OS thread to avoid audio stuttering
-	runtime.GOMAXPROCS(6)
-
+func Run(rom_path string, replay_path string, replay_mode bool) {
 	// we need to keep OpenGL calls on a single thread
 	runtime.LockOSThread()
-}
 
-func Run(rom_path string, replay_path string, replay_mode bool) {
 	console, err := nes.NewConsole(rom_path)
 	if err != nil {
 		log.Fatalln(err)

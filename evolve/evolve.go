@@ -17,6 +17,10 @@ const (
   GoodEnd
 )
 
+const (
+  length = 2000
+)
+
 type IterateResult struct {
   replay *replay.Replay
   score uint64
@@ -33,18 +37,17 @@ func Run(rom_path string, replay_path string) {
 
   _, best_score=ScoreReplay(rom_path, best_replay)
 
+  iteration:=0
   for {
     for i:=0; i<10; i++ {
       go func(i int) {
-        fmt.Println("Start ", i)
         actual_replay, _, actual_score:=Iterate(rom_path, best_replay)
         result:=IterateResult{actual_replay, actual_score}
         ch <- result
-        fmt.Println("Finish ", i, actual_score)
       }(i)
     }
     for i:=0; i<10; i++ {
-      actual_score_replay:= <- ch
+      actual_score_replay:= <-ch
 
       if actual_score_replay.score>=best_score {
         best_replay=actual_score_replay.replay
@@ -52,16 +55,17 @@ func Run(rom_path string, replay_path string) {
         best_replay.Save("best.mov")
       }
     }
-    fmt.Println(best_score)
+    fmt.Println(iteration, best_score)
+    iteration++
   }
 }
 
 func Iterate(rom_path string, replay_master *replay.Replay) (replay *replay.Replay, state int, score uint64) {
   replay_actual := replay_master.Copy()
 
-  changes := int(math.Pow(10, rand.Float64()))
+  changes := int(10*rand.Float64())
   for i:=0; i<changes; i++ {
-    pos := int(math.Pow(float64(replay_actual.Len()), rand.Float64()))
+    pos := int(length*rand.Float64())
     length := int(math.Pow(400.0, rand.Float64()))
     if pos+length>replay_actual.Len() {
       length = replay_actual.Len()-pos
@@ -96,7 +100,7 @@ func ScoreReplay(rom_path string, replay *replay.Replay) (state int, score uint6
 
   console.Load(replay.GetConsoleState())
 
-  for frame:=0; frame<replay.Len(); frame++ {
+  for frame:=0; frame<length; frame++ {
     console.StepFrame()
     console.SetButtons1(replay.ReadButtons(frame))
     state, frame_score=GetFrameScore(console)
@@ -105,17 +109,25 @@ func ScoreReplay(rom_path string, replay *replay.Replay) (state int, score uint6
       break;
     }
   }
+  score+=uint64(console.RAM[0x7dd])*100000+uint64(console.RAM[0x7de])*10000+uint64(console.RAM[0x7df])*1000+uint64(console.RAM[0x7e0])*100+uint64(console.RAM[0x7e1])*10+uint64(console.RAM[0x7e2])
+  if state==GoodEnd {
+    score=uint64(float32(score)*(1+float32((uint64(console.RAM[0x7f8])*100+uint64(console.RAM[0x7f9])*10+uint64(console.RAM[0x7fa])))/400.0))
+  }
   return state, score
 }
 
 func GetFrameScore(console *nes.Console) (state int, score uint64) {
-  score=uint64(console.RAM[0x6D])*256+uint64(console.RAM[0x86]) // x pos
   state=Running
+
+  score=uint64(console.RAM[0x6D])*256+uint64(console.RAM[0x86]) // x pos
+
   if console.RAM[0x0E]==0x06 || console.RAM[0x0E]==0x0B || console.RAM[0xB5]==255 {
     state=BadEnd
   }
+
   if console.RAM[0x70f]!=0 && console.RAM[0x70f]!=255 {
     state=GoodEnd
   }
+
   return state, score
 }
