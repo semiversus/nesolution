@@ -109,10 +109,10 @@ func Iterate(rom_path string, replay_master *replay.Replay) (replay *replay.Repl
 func ScoreReplay(rom_path string, replay *replay.Replay) (state int, score uint64) {
   var frame_score uint64;
 
-	console, err := nes.NewConsole(rom_path)
-	if err != nil {
-		log.Fatalln(err)
-	}
+  console, err := nes.NewConsole(rom_path)
+  if err != nil {
+    log.Fatalln(err)
+  }
 
   console.Load(replay.GetConsoleState())
 
@@ -125,23 +125,22 @@ func ScoreReplay(rom_path string, replay *replay.Replay) (state int, score uint6
       break;
     }
   }
-  score+=uint64(console.RAM[0x7dd])*100000+uint64(console.RAM[0x7de])*10000+uint64(console.RAM[0x7df])*1000+uint64(console.RAM[0x7e0])*100+uint64(console.RAM[0x7e1])*10+uint64(console.RAM[0x7e2])
+  score+=uint64(console.RAM[0x6D])*256+uint64(console.RAM[0x86]) // x pos
+  score+=(uint64(console.RAM[0x7dd])*100000+uint64(console.RAM[0x7de])*10000+uint64(console.RAM[0x7df])*1000+uint64(console.RAM[0x7e0])*100+uint64(console.RAM[0x7e1])*10+uint64(console.RAM[0x7e2]))/10  // points
+
   if state==GoodEnd {
     score=uint64(float32(score)*(1+float32((uint64(console.RAM[0x7f8])*100+uint64(console.RAM[0x7f9])*10+uint64(console.RAM[0x7fa])))/400.0))
   }
+   fmt.Println(uint64(console.RAM[0x6D])*256+uint64(console.RAM[0x86]), uint64(console.RAM[0x7dd])*100000+uint64(console.RAM[0x7de])*10000+uint64(console.RAM[0x7df])*1000+uint64(console.RAM[0x7e0])*100+uint64(console.RAM[0x7e1])*10+uint64(console.RAM[0x7e2]), (1+float32((uint64(console.RAM[0x7f8])*100+uint64(console.RAM[0x7f9])*10+uint64(console.RAM[0x7fa])))/400.0), score, state)
   return state, score
 }
 
 func GetFrameScore(console *nes.Console) (state int, score uint64) {
   state=Running
 
-  score=uint64(console.RAM[0x6D])*256+uint64(console.RAM[0x86]) // x pos
-
   if console.RAM[0x0E]==0x06 || console.RAM[0x0E]==0x0B || console.RAM[0xB5]==255 {
     state=BadEnd
-  }
-
-  if console.RAM[0x70f]!=0 && console.RAM[0x70f]!=255 {
+  } else if console.RAM[0x70f]!=0 && console.RAM[0x70f]!=255 {
     state=GoodEnd
   }
 
