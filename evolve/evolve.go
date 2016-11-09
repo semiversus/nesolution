@@ -137,7 +137,7 @@ func GetFrameScore(console *nes.Console) (state int, score uint64) {
 
   score=uint64(console.RAM[0x6D])*256+uint64(console.RAM[0x86]) // x pos
 
-  if console.RAM[0x0E]==0x06 || console.RAM[0x0E]==0x0B || console.RAM[0xB5]==255 {
+  if console.RAM[0x0E]==0x06 || console.RAM[0x0E]==0x0B || console.RAM[0x7b1]==1 {
     state=BadEnd
   }
 
