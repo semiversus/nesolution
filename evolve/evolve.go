@@ -127,7 +127,7 @@ func ScoreReplay(rom_path string, replay *replay.Replay) (state int, score uint6
   }
   score+=uint64(console.RAM[0x6D])*256+uint64(console.RAM[0x86]) // x pos
   score+=(uint64(console.RAM[0x7dd])*100000+uint64(console.RAM[0x7de])*10000+uint64(console.RAM[0x7df])*1000+uint64(console.RAM[0x7e0])*100+uint64(console.RAM[0x7e1])*10+uint64(console.RAM[0x7e2]))/10  // points
-  score+=uint64(console.RAM[0x756])*100
+  score+=uint64(console.RAM[0x756])*100 // big mario or firey
 
   if state==GoodEnd {
     score=uint64(float32(score)*(1+float32((uint64(console.RAM[0x7f8])*100+uint64(console.RAM[0x7f9])*10+uint64(console.RAM[0x7fa])))/400.0))
