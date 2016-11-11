@@ -75,9 +75,7 @@ func Run(rom_path string, replay_path string, replay_mode bool) {
     }
 
     switch key {
-    case glfw.KeyR:
-      console.Reset()
-    case glfw.KeySpace:
+    case glfw.KeyR: // Record
       switch mode {
       case Idle:
         fmt.Println("Start")
@@ -86,6 +84,17 @@ func Run(rom_path string, replay_path string, replay_mode bool) {
       case Recording:
         fmt.Println("Stop")
         replay.Save(replay_path)
+        mode = Idle
+      }
+    case glfw.KeyS: // Snapshot
+      if mode==Idle {
+        replay = NewReplay(console)
+        replay.Save(replay_path)
+      }
+    case glfw.KeyL: // Load Snapshot
+      if mode==Idle {
+        replay = Load(replay_path)
+        console.Load(replay.GetConsoleState())
       }
     }
   }
@@ -123,7 +132,6 @@ func Run(rom_path string, replay_path string, replay_mode bool) {
           replay.AppendButtons(updateControllers(window, console))
         case Idle:
           updateControllers(window, console)
-          fmt.Println(console.RAM[0x7b1])
         }
         frame++
       }

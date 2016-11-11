@@ -26,6 +26,8 @@ func main() {
   switch cmd_string { // check command
   case "play":
     replay.Run(rom_path, replay_path, true)
+  case "encode":
+    replay.Encode(rom_path, replay_path)
   case "record":
     replay.Run(rom_path, replay_path, false)
   case "evolve":
