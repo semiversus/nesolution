@@ -20,7 +20,7 @@ const (
 )
 
 const (
-  replay_length = 2000
+  replay_length = 600
 )
 
 type IterateResult struct {
@@ -33,6 +33,7 @@ func Run(rom_path string, replay_path string) {
   var number_path int
   var best_score uint64
   var best_replay *replay.Replay
+  var complete_replay *replay.Replay
 
   ch := make(chan IterateResult)
 
@@ -43,36 +44,61 @@ func Run(rom_path string, replay_path string) {
     path_slice:=re.FindStringSubmatch(replay_path)
     prefix_path, postfix_path=path_slice[1],  path_slice[3]
     number_path,_=strconv.Atoi(path_slice[2])
-    best_replay=replay.Load(replay_path)
+    complete_replay=replay.Load(replay_path)
   } else {
-    best_replay=new(replay.Replay)
+    complete_replay=new(replay.Replay)
     prefix_path="best"
     number_path=0
     postfix_path=".mov"
   }
 
-  _, best_score=ScoreReplay(rom_path, best_replay)
+  if complete_replay.Len()>replay_length {
+    console, _ := nes.NewConsole(rom_path)
+    console.Load(complete_replay.GetConsoleState())
+    for frame:=0; frame<complete_replay.Len()-replay_length; frame++ {
+      console.StepFrame()
+      console.SetButtons1(complete_replay.ReadButtons(frame))
+    }
+    best_replay=replay.NewReplay(console)
+    copy(best_replay.Controller_data, complete_replay.Controller_data[complete_replay.Len()-replay_length:])
+  } else {
+    best_replay=complete_replay
+  }
 
   for {
-    for i:=0; i<10; i++ {
-      go func(i int) {
-        actual_replay, _, actual_score:=Iterate(rom_path, best_replay)
-        result:=IterateResult{actual_replay, actual_score}
-        ch <- result
-      }(i)
-    }
-    for i:=0; i<10; i++ {
-      actual_score_replay:= <-ch
+    _, best_score=ScoreReplay(rom_path, best_replay)
 
-      if actual_score_replay.score>=best_score {
-        best_replay=actual_score_replay.replay
-        best_score=actual_score_replay.score
+    for j:=0; j<1000; j++ {
+      for i:=0; i<10; i++ {
+        go func(i int) {
+          actual_replay, _, actual_score:=Iterate(rom_path, best_replay)
+          result:=IterateResult{actual_replay, actual_score}
+          ch <- result
+        }(i)
+      }
+      for i:=0; i<10; i++ {
+        actual_score_replay:= <-ch
+
+        if actual_score_replay.score>=best_score {
+          best_replay=actual_score_replay.replay
+          best_score=actual_score_replay.score
+        }
       }
     }
+    complete_replay.Controller_data=append(complete_replay.Controller_data, best_replay.Controller_data[:replay_length/2]...)
     number_path++
     filename:=prefix_path+strconv.Itoa(number_path)+postfix_path
-    best_replay.Save(filename)
+    complete_replay.Save(filename)
     fmt.Println(filename, best_score)
+    console, _ := nes.NewConsole(rom_path)
+    console.Load(best_replay.GetConsoleState())
+    for frame:=0; frame<replay_length/2; frame++ {
+      console.StepFrame()
+      console.SetButtons1(best_replay.ReadButtons(frame))
+    }
+    second_half:=best_replay.Controller_data[replay_length/2:]
+    best_replay=replay.NewReplay(console)
+    copy(best_replay.Controller_data, second_half)
   }
 }
 
@@ -126,12 +152,10 @@ func ScoreReplay(rom_path string, replay *replay.Replay) (state int, score uint6
     }
   }
   score+=uint64(console.RAM[0x6D])*256+uint64(console.RAM[0x86]) // x pos
-  score+=(uint64(console.RAM[0x7dd])*100000+uint64(console.RAM[0x7de])*10000+uint64(console.RAM[0x7df])*1000+uint64(console.RAM[0x7e0])*100+uint64(console.RAM[0x7e1])*10+uint64(console.RAM[0x7e2]))/10  // points
+  score+=uint64(console.RAM[0x7dd])*100000+uint64(console.RAM[0x7de])*10000+uint64(console.RAM[0x7df])*1000+uint64(console.RAM[0x7e0])*100+uint64(console.RAM[0x7e1])*10+uint64(console.RAM[0x7e2]) // points
   score+=uint64(console.RAM[0x756])*100 // big mario or firey
+  score+=uint64(console.RAM[0x75f])*200000+uint64(console.RAM[0x75c])*50000
 
-  if state==GoodEnd {
-    score=uint64(float32(score)*(1+float32((uint64(console.RAM[0x7f8])*100+uint64(console.RAM[0x7f9])*10+uint64(console.RAM[0x7fa])))/400.0))
-  }
   // fmt.Println(uint64(console.RAM[0x6D])*256+uint64(console.RAM[0x86]), uint64(console.RAM[0x7dd])*100000+uint64(console.RAM[0x7de])*10000+uint64(console.RAM[0x7df])*1000+uint64(console.RAM[0x7e0])*100+uint64(console.RAM[0x7e1])*10+uint64(console.RAM[0x7e2]), (1+float32((uint64(console.RAM[0x7f8])*100+uint64(console.RAM[0x7f9])*10+uint64(console.RAM[0x7fa])))/400.0), score, state)
   return state, score
 }
@@ -141,8 +165,6 @@ func GetFrameScore(console *nes.Console) (state int, score uint64) {
 
   if console.RAM[0x0E]==0x06 || console.RAM[0x0E]==0x0B || console.RAM[0x7b1]==1 {
     state=BadEnd
-  } else if console.RAM[0x70f]!=0 && console.RAM[0x70f]!=255 {
-    state=GoodEnd
   }
 
   return state, score

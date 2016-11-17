@@ -9,7 +9,7 @@ import (
 )
 
 type Replay struct {
-  controller_data []byte
+  Controller_data []byte
   console_state []byte
 }
 
@@ -31,7 +31,7 @@ func Load(filename string) *Replay {
 
   replay := Replay{}
 	decoder := gob.NewDecoder(file)
-	decoder.Decode(&replay.controller_data)
+	decoder.Decode(&replay.Controller_data)
   decoder.Decode(&replay.console_state)
 
   return &replay
@@ -51,18 +51,18 @@ func (r *Replay) Save(filename string) error {
 	defer file.Close()
 
 	encoder := gob.NewEncoder(file)
-	encoder.Encode(r.controller_data)
+	encoder.Encode(r.Controller_data)
 	encoder.Encode(r.console_state)
   return nil
 }
 
 func (r *Replay) Len() int {
-  return len(r.controller_data)
+  return len(r.Controller_data)
 }
 
 func (r *Replay) Copy() *Replay {
-  replay := Replay{controller_data: make([]byte, len(r.controller_data)), console_state:r.console_state}
-  copy(replay.controller_data, r.controller_data)
+  replay := Replay{Controller_data: make([]byte, len(r.Controller_data)), console_state:r.console_state}
+  copy(replay.Controller_data, r.Controller_data)
   return &replay
 }
 
@@ -73,12 +73,12 @@ func (r *Replay) AppendButtons(buttons [8]bool) {
       value+=1<<i
     }
   }
-  r.controller_data = append(r.controller_data, value)
+  r.Controller_data = append(r.Controller_data, value)
 }
 
 func (r *Replay) ReadButtons(pos int) (buttons [8]bool) {
-  if pos < len(r.controller_data) {
-    value := r.controller_data[pos]
+  if pos < len(r.Controller_data) {
+    value := r.Controller_data[pos]
     for i := uint(0); i<8; i++ {
       buttons[i] = (value>>i)&1==1
     }
@@ -87,41 +87,41 @@ func (r *Replay) ReadButtons(pos int) (buttons [8]bool) {
 }
 
 func (r *Replay) SetButton(pos int, length int, button int) {
-  if pos+length>len(r.controller_data) {
-    r.controller_data=append(r.controller_data[:], make([]byte, pos+length-len(r.controller_data))...)
+  if pos+length>len(r.Controller_data) {
+    r.Controller_data=append(r.Controller_data[:], make([]byte, pos+length-len(r.Controller_data))...)
   }
 
   for i:=pos; i<pos+length; i++ {
     switch button {
     case nes.ButtonLeft:
-      r.controller_data[i]=(r.controller_data[i]&(^uint8(1<<nes.ButtonRight)))|(1<<nes.ButtonLeft)
+      r.Controller_data[i]=(r.Controller_data[i]&(^uint8(1<<nes.ButtonRight)))|(1<<nes.ButtonLeft)
     case nes.ButtonRight:
-      r.controller_data[i]=(r.controller_data[i]&(^uint8(1<<nes.ButtonLeft)))|(1<<nes.ButtonRight)
+      r.Controller_data[i]=(r.Controller_data[i]&(^uint8(1<<nes.ButtonLeft)))|(1<<nes.ButtonRight)
     case nes.ButtonUp:
-      r.controller_data[i]=(r.controller_data[i]&(^uint8(1<<nes.ButtonDown)))|(1<<nes.ButtonUp)
+      r.Controller_data[i]=(r.Controller_data[i]&(^uint8(1<<nes.ButtonDown)))|(1<<nes.ButtonUp)
     case nes.ButtonDown:
-      r.controller_data[i]=(r.controller_data[i]&(^uint8(1<<nes.ButtonUp)))|(1<<nes.ButtonDown)
+      r.Controller_data[i]=(r.Controller_data[i]&(^uint8(1<<nes.ButtonUp)))|(1<<nes.ButtonDown)
     default:
-      r.controller_data[i]|=1<<uint8(button)
+      r.Controller_data[i]|=1<<uint8(button)
     }
   }
 }
 
 func (r *Replay) RemoveButton(pos int, length int, button int) {
-  if pos+length>len(r.controller_data) {
-    return 
+  if pos+length>len(r.Controller_data) {
+    return
   }
   for i:=pos; i<pos+length; i++ {
-    r.controller_data[i]&=^uint8(1<<uint8(button))
+    r.Controller_data[i]&=^uint8(1<<uint8(button))
   }
 }
 
 func (r *Replay) Cut(pos int, length int) {
-  if pos+length>len(r.controller_data) {
-    return 
+  if pos+length>len(r.Controller_data) {
+    return
   }
-  copy(r.controller_data[pos:], r.controller_data[pos+length:])
-  for i:=range r.controller_data[len(r.controller_data)-length:] {
-    r.controller_data[i]=0
+  copy(r.Controller_data[pos:], r.Controller_data[pos+length:])
+  for i:=range r.Controller_data[len(r.Controller_data)-length:] {
+    r.Controller_data[i]=0
   }
 }
