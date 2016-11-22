@@ -20,12 +20,13 @@ const (
 )
 
 const (
-  replay_length = 600
+  replay_length = 300
 )
 
 type IterateResult struct {
   replay *replay.Replay
   score uint64
+  state int
 }
 
 func Run(rom_path string, replay_path string) {
@@ -62,28 +63,34 @@ func Run(rom_path string, replay_path string) {
     best_replay=replay.NewReplay(console)
     copy(best_replay.Controller_data, complete_replay.Controller_data[complete_replay.Len()-replay_length:])
   } else {
-    best_replay=complete_replay
+    best_replay=complete_replay.Copy()
   }
+  complete_replay.Controller_data=complete_replay.Controller_data[0:0]
 
   for {
     _, best_score=ScoreReplay(rom_path, best_replay)
 
-    for j:=0; j<1000; j++ {
+    survived:=false
+
+    for j:=0; j<100 || survived==false; j++ {
       for i:=0; i<10; i++ {
         go func(i int) {
-          actual_replay, _, actual_score:=Iterate(rom_path, best_replay)
-          result:=IterateResult{actual_replay, actual_score}
+          actual_replay, actual_state, actual_score:=Iterate(rom_path, best_replay)
+          result:=IterateResult{actual_replay, actual_score, actual_state}
           ch <- result
         }(i)
       }
       for i:=0; i<10; i++ {
         actual_score_replay:= <-ch
 
-        if actual_score_replay.score>=best_score {
+        if actual_score_replay.score>=best_score && actual_score_replay.state!=BadEnd{
           best_replay=actual_score_replay.replay
           best_score=actual_score_replay.score
+          survived=true
         }
       }
+      fmt.Println(j, best_score, best_replay.Len(), complete_replay.Len())
+      best_replay.Save("best"+strconv.Itoa(number_path)+".mov")
     }
     complete_replay.Controller_data=append(complete_replay.Controller_data, best_replay.Controller_data[:replay_length/2]...)
     number_path++
@@ -98,6 +105,7 @@ func Run(rom_path string, replay_path string) {
     }
     second_half:=best_replay.Controller_data[replay_length/2:]
     best_replay=replay.NewReplay(console)
+    best_replay.Controller_data=make([]byte, replay_length/2)
     copy(best_replay.Controller_data, second_half)
   }
 }
